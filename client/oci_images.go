@@ -419,7 +419,7 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 			return nil, "", err
 		}
 	
-		var stdout string
+		var skres string
 	
 		if uri.User == nil {
 			fmt.Print("Auth not enabled")
@@ -434,12 +434,14 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 				logger.Debug("Error getting image alias", logger.Ctx{"name": name, "stdout": stdout, "stderr": err})
 				return nil, "", err
 			}
+			skres = stdout
 		} else {
-			fmt.Print("Auth enabled")
+			fmt.Print("Auth enabled\n")
 			creds, err := json.Marshal(map[string]any{"auths": map[string]any{fmt.Sprintf("%s://%s", uri.Scheme, uri.Host): map[string]string{"auth": base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s", uri.User.String())))}}})
 			if err != nil {
 				return nil, "", err
 			}
+			//fmt.Printf("creds file: %s", creds)
 	
 			uri.Scheme = "docker"
 	
@@ -460,6 +462,9 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 			if err != nil {
 				return nil, "", err
 			}
+
+			uri.User = nil
+			fmt.Printf("%s/%s\n", uri.String(), name)
 	
 			stdout, _, err := subprocess.RunCommandSplit(
 				context.Background(), // TODO: not sure
@@ -467,18 +472,20 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 				nil,
 				"skopeo",
 				"inspect",
-				"--authfile", authFile.Name(),
-				fmt.Sprintf("%s/%s", uri.String(), name))
+				fmt.Sprintf("%s/%s", uri.String(), name),
+				fmt.Sprintf("--authfile=%s", authFile.Name()))
 			if err != nil {
-				fmt.Sprintf("stdout: %s", stdout)
+				fmt.Printf("stdout: %s", stdout)
 				logger.Debug("Error getting image alias", logger.Ctx{"name": name, "stdout": stdout, "stderr": err})
 				return nil, "", err
 			}
+			skres = stdout
+			
 		}
-
+	fmt.Printf("stdout post if: %s", skres)
 	// Parse the image info.
 	var info ociInfo
-	err = json.Unmarshal([]byte(stdout), &info)
+	err = json.Unmarshal([]byte(skres), &info)
 	if err != nil {
 		return nil, "", err
 	}
