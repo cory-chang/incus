@@ -81,6 +81,35 @@ func RunCommandSplit(ctx context.Context, env []string, filesInherit []*os.File,
 	return stdout.String(), stderr.String(), nil
 }
 
+// RunCommandSplit runs a command with a supplied environment and optional arguments and returns the
+// resulting stdout and stderr output as separate variables. If the supplied environment is nil then
+// the default environment is used. If the command fails to start or returns a non-zero exit code
+// then an error is returned containing the output of stderr too.
+func RunCommandWithStdin(ctx context.Context, env []string, filesInherit []*os.File, stdin string, name string, arg ...string) (string, string, error) {
+	cmd := exec.CommandContext(ctx, name, arg...)
+
+	if env != nil {
+		cmd.Env = env
+	}
+
+	if filesInherit != nil {
+		cmd.ExtraFiles = filesInherit
+	}
+
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	cmd.Stdin = strings.NewReader(stdin)
+
+	err := cmd.Run()
+	if err != nil {
+		return stdout.String(), stderr.String(), NewRunError(name, arg, err, &stdout, &stderr)
+	}
+
+	return stdout.String(), stderr.String(), nil
+}
+
 // RunCommandContext runs a command with optional arguments and returns stdout. If the command fails to
 // start or returns a non-zero exit code then an error is returned containing the output of stderr.
 func RunCommandContext(ctx context.Context, name string, arg ...string) (string, error) {

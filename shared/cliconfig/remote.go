@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -149,7 +150,7 @@ func (c *Config) GetInstanceServer(name string) (incus.InstanceServer, error) {
 
 // GetImageServer returns a ImageServer struct for the remote.
 func (c *Config) GetImageServer(name string) (incus.ImageServer, error) {
-	fmt.Print("Hello")
+	ctx := context.Background()
 	// Handle "local" on non-Linux
 	if name == "local" && runtime.GOOS != "linux" {
 		return nil, ErrNotLinux
@@ -200,18 +201,21 @@ func (c *Config) GetImageServer(name string) (incus.ImageServer, error) {
 
 		return d, nil
 	}
-	fmt.Printf("Protocol: %s; Cred helper: %s", remote.Protocol, remote.CredHelper)
 
 	// HTTPs (OCI)
 	if remote.Protocol == "oci" {
 		if remote.CredHelper != "" {
-			fmt.Print("HAHAHAHAHAHAHA")
 			// TODO: call cred helper
 			// TODO: Set remote.Addr using the net.URL package with username/secret
-			stdout, err := subprocess.RunCommand(
-				"echo",
-				remote.Addr,
-				"|",
+			u, err := url.Parse(remote.Addr)
+			if err != nil {
+				return nil, err
+			}
+			stdout, _, err := subprocess.RunCommandWithStdin(
+				ctx,
+				nil,
+				nil,
+				fmt.Sprintf("%s://%s", u.Scheme, u.Host),
 				remote.CredHelper,
 				"get")
 			if err != nil {
@@ -225,12 +229,9 @@ func (c *Config) GetImageServer(name string) (incus.ImageServer, error) {
 			}
 
 			// Recreate address with username/secret
-			u, err := url.Parse(remote.Addr)
-			if err != nil {
-				return nil, err
-			}
 			u.User = url.UserPassword(res["Username"], res["Secret"])
 			remote.Addr = u.String()
+			fmt.Printf("Address: %s\n", remote.Addr)
 		}
 		d, err := incus.ConnectOCI(remote.Addr, args)
 		if err != nil {

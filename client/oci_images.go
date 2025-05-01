@@ -85,7 +85,7 @@ func (r *ProtocolOCI) GetImage(fingerprint string) (*api.Image, string, error) {
 			return nil, "", fmt.Errorf("OCI container handling requires \"skopeo\" be present on the system")
 		}
 
-		return nil, "", fmt.Errorf("Image not found")
+		return nil, "", fmt.Errorf("Image not found 2")
 	}
 
 	img := api.Image{
@@ -144,7 +144,7 @@ func (r *ProtocolOCI) GetImageFile(fingerprint string, req ImageFileRequest) (*I
 			return nil, fmt.Errorf("OCI container handling requires \"skopeo\" be present on the system")
 		}
 
-		return nil, fmt.Errorf("Image not found")
+		return nil, fmt.Errorf("Image not found 1")
 	}
 
 	// Quick checks.
@@ -398,6 +398,8 @@ func (r *ProtocolOCI) GetImageAliasNames() ([]string, error) {
 
 // GetImageAlias returns an existing alias as an ImageAliasesEntry struct.
 func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string, error) {
+	
+	fmt.Print("HERE1")
 	// Get proxy details.
 	proxy, err := r.getProxyHost()
 	if err != nil {
@@ -423,7 +425,7 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 	
 		if uri.User == nil {
 			stdout, _, err := subprocess.RunCommandSplit(
-				context.TODO(),
+				context.Background(), // TODO: not sure
 				env,
 				nil,
 				"skopeo",
@@ -460,7 +462,7 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 			}
 	
 			stdout, _, err := subprocess.RunCommandSplit(
-				context.TODO(),
+				context.Background(), // TODO: not sure
 				env,
 				nil,
 				"skopeo",
@@ -497,6 +499,7 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 
 	// Store it in the cache.
 	r.cache[info.Digest] = info
+	fmt.Sprintf("HERE")
 
 	// Prepare the alias entry.
 	alias := api.ImageAliasesEntry{
