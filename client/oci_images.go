@@ -183,22 +183,70 @@ func (r *ProtocolOCI) GetImageFile(fingerprint string, req ImageFileRequest) (*I
 		req.ProgressHandler(ioprogress.ProgressData{Text: "Retrieving OCI image from registry"})
 	}
 
-	// TODO: pull username/secret out of URL, and attach to authfile
+		// TODO: pull username/secret out of URL, and attach to authfile
 	// TODO: check if auth is actually being used
 	// TODO: pull entire skopeo call into a separate function
-	stdout, _, err := subprocess.RunCommandSplit(
-		ctx,
-		env,
-		nil,
-		"skopeo",
-		"--insecure-policy",
-		"copy",
-		"--remove-signatures",
-		fmt.Sprintf("%s/%s", strings.Replace(r.httpHost, "https://", "docker://", 1), info.Alias),
-		fmt.Sprintf("oci:%s:latest", filepath.Join(ociPath, "oci")))
+	uri, err := url.Parse(r.httpHost)
 	if err != nil {
-		logger.Debug("Error copying remote image to local", logger.Ctx{"image": info.Alias, "stdout": stdout, "stderr": err})
 		return nil, err
+	}
+
+	if uri.User == nil {
+		stdout, _, err := subprocess.RunCommandSplit(
+			ctx,
+			env,
+			nil,
+			"skopeo",
+			"--insecure-policy",
+			"copy",
+			"--remove-signatures",
+			fmt.Sprintf("%s/%s", strings.Replace(r.httpHost, "https://", "docker://", 1), info.Alias),
+			fmt.Sprintf("oci:%s:latest", filepath.Join(ociPath, "oci")))
+		if err != nil {
+			logger.Debug("Error copying remote image to local", logger.Ctx{"image": info.Alias, "stdout": stdout, "stderr": err})
+			return nil, err
+		}
+	} else {
+		creds, err := json.Marshal(map[string]any{"auths": map[string]any{fmt.Sprintf("%s://%s", uri.Scheme, uri.Host): map[string]string{"auth": base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s", uri.User.String())))}}})
+		if err != nil {
+			return nil, err
+		}
+
+		uri.Scheme = "docker"
+
+		authFile, err := os.CreateTemp("", "incus_client_auth_")
+		if err != nil {
+			return nil, err
+		}
+
+		defer authFile.Close()
+		defer os.Remove(authFile.Name())
+
+		err = authFile.Chmod(0o600)
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = fmt.Fprintf(authFile, "%s", creds)
+		if err != nil {
+			return nil, err
+		}
+
+		stdout, _, err := subprocess.RunCommandSplit(
+			ctx,
+			env,
+			nil,
+			"skopeo",
+			"--insecure-policy",
+			"copy",
+			"--remove-signatures",
+			"--authfile", authFile.Name(),
+			fmt.Sprintf("%s/%s", uri.String(), info.Alias))
+			fmt.Sprintf("oci:%s:latest", filepath.Join(ociPath, "oci"))
+		if err != nil {
+			logger.Debug("Error copying remote image to local", logger.Ctx{"image": info.Alias, "stdout": stdout, "stderr": err})
+			return nil, err
+		}
 	}
 
 	// Convert to something usable.
@@ -364,18 +412,65 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 	}
 
 	// Get the image information from skopeo.
-	// TODO: pull username/secret out of URL, and attach to authfile
-	stdout, _, err := subprocess.RunCommandSplit(
-		context.TODO(),
-		env,
-		nil,
-		"skopeo",
-		"inspect",
-		fmt.Sprintf("%s/%s", strings.Replace(r.httpHost, "https://", "docker://", 1), name))
-	if err != nil {
-		logger.Debug("Error getting image alias", logger.Ctx{"name": name, "stdout": stdout, "stderr": err})
-		return nil, "", err
-	}
+		// TODO: pull username/secret out of URL, and attach to authfile
+		uri, err := url.Parse(r.httpHost)
+		if err != nil {
+			return nil, "", err
+		}
+	
+		var stdout string
+	
+		if uri.User == nil {
+			stdout, _, err := subprocess.RunCommandSplit(
+				context.TODO(),
+				env,
+				nil,
+				"skopeo",
+				"inspect",
+				fmt.Sprintf("%s/%s", strings.Replace(r.httpHost, "https://", "docker://", 1), name))
+			if err != nil {
+				logger.Debug("Error getting image alias", logger.Ctx{"name": name, "stdout": stdout, "stderr": err})
+				return nil, "", err
+			}
+		} else {
+			creds, err := json.Marshal(map[string]any{"auths": map[string]any{fmt.Sprintf("%s://%s", uri.Scheme, uri.Host): map[string]string{"auth": base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s", uri.User.String())))}}})
+			if err != nil {
+				return nil, "", err
+			}
+	
+			uri.Scheme = "docker"
+	
+			authFile, err := os.CreateTemp("", "incus_client_auth_")
+			if err != nil {
+				return nil, "", err
+			}
+	
+			defer authFile.Close()
+			defer os.Remove(authFile.Name())
+	
+			err = authFile.Chmod(0o600)
+			if err != nil {
+				return nil, "", err
+			}
+	
+			_, err = fmt.Fprintf(authFile, "%s", creds)
+			if err != nil {
+				return nil, "", err
+			}
+	
+			stdout, _, err := subprocess.RunCommandSplit(
+				context.TODO(),
+				env,
+				nil,
+				"skopeo",
+				"inspect",
+				"--authfile", authFile.Name(),
+				fmt.Sprintf("%s/%s", uri.String(), name))
+			if err != nil {
+				logger.Debug("Error getting image alias", logger.Ctx{"name": name, "stdout": stdout, "stderr": err})
+				return nil, "", err
+			}
+		}
 
 	// Parse the image info.
 	var info ociInfo
