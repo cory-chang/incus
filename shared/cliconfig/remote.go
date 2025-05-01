@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"runtime"
 	"slices"
@@ -17,7 +18,7 @@ import (
 
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"golang.org/x/crypto/ssh"
-
+	"github.com/lxc/incus/v6/shared/subprocess"
 	incus "github.com/lxc/incus/v6/client"
 	"github.com/lxc/incus/v6/shared/api"
 	"github.com/lxc/incus/v6/shared/util"
@@ -148,6 +149,7 @@ func (c *Config) GetInstanceServer(name string) (incus.InstanceServer, error) {
 
 // GetImageServer returns a ImageServer struct for the remote.
 func (c *Config) GetImageServer(name string) (incus.ImageServer, error) {
+	fmt.Print("Hello")
 	// Handle "local" on non-Linux
 	if name == "local" && runtime.GOOS != "linux" {
 		return nil, ErrNotLinux
@@ -198,12 +200,37 @@ func (c *Config) GetImageServer(name string) (incus.ImageServer, error) {
 
 		return d, nil
 	}
+	fmt.Printf("Protocol: %s; Cred helper: %s", remote.Protocol, remote.CredHelper)
 
 	// HTTPs (OCI)
 	if remote.Protocol == "oci" {
 		if remote.CredHelper != "" {
+			fmt.Print("HAHAHAHAHAHAHA")
 			// TODO: call cred helper
 			// TODO: Set remote.Addr using the net.URL package with username/secret
+			stdout, err := subprocess.RunCommand(
+				"echo",
+				remote.Addr,
+				"|",
+				remote.CredHelper,
+				"get")
+			if err != nil {
+				return nil, err
+			}
+			// Parse byte buffer output to username and password
+			var res map[string]string
+			err = json.Unmarshal([]byte(stdout), &res)
+			if err != nil {
+				return nil, err
+			}
+
+			// Recreate address with username/secret
+			u, err := url.Parse(remote.Addr)
+			if err != nil {
+				return nil, err
+			}
+			u.User = url.UserPassword(res["Username"], res["Secret"])
+			remote.Addr = u.String()
 		}
 		d, err := incus.ConnectOCI(remote.Addr, args)
 		if err != nil {

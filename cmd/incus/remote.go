@@ -226,7 +226,7 @@ func (c *cmdRemoteAdd) addRemoteFromToken(addr string, server string, token stri
 	var certificate *x509.Certificate
 	var err error
 
-	conf.Remotes[server] = config.Remote{Addr: addr, Protocol: c.flagProtocol, AuthType: c.flagAuthType}
+	conf.Remotes[server] = config.Remote{Addr: addr, Protocol: c.flagProtocol, AuthType: c.flagAuthType, CredHelper: c.flagCredHelper}
 
 	_, err = conf.GetInstanceServer(server)
 	if err != nil {
@@ -294,7 +294,7 @@ func (c *cmdRemoteAdd) addRemoteFromToken(addr string, server string, token stri
 // Run is used in the RunE field of the cobra.Command returned by Command.
 func (c *cmdRemoteAdd) Run(cmd *cobra.Command, args []string) error {
 	conf := c.global.conf
-
+	
 	// Quick checks.
 	exit, err := c.global.checkArgs(cmd, args, 1, 2)
 	if exit {
@@ -350,7 +350,7 @@ func (c *cmdRemoteAdd) Run(cmd *cobra.Command, args []string) error {
 			return errors.New(i18n.G("Only https URLs are supported for oci and simplestreams"))
 		}
 
-		conf.Remotes[server] = config.Remote{Addr: addr, Public: true, Protocol: c.flagProtocol}
+		conf.Remotes[server] = config.Remote{Addr: addr, Public: true, Protocol: c.flagProtocol, CredHelper: c.flagCredHelper}
 		return conf.SaveConfig(c.global.confPath)
 	} else if c.flagProtocol != "incus" {
 		return fmt.Errorf(i18n.G("Invalid protocol: %s"), c.flagProtocol)
@@ -422,6 +422,8 @@ func (c *cmdRemoteAdd) Run(cmd *cobra.Command, args []string) error {
 
 	conf.Remotes[server] = config.Remote{Addr: addr, Protocol: c.flagProtocol, AuthType: c.flagAuthType, CredHelper: c.flagCredHelper}
 
+	fmt.Print("Getting ready to call image servers")
+	fmt.Printf("remote cred helper: %s", c.flagCredHelper)
 	// Attempt to connect
 	var d incus.ImageServer
 	if c.flagPublic {
@@ -519,7 +521,7 @@ func (c *cmdRemoteAdd) Run(cmd *cobra.Command, args []string) error {
 
 	// Handle public remotes
 	if c.flagPublic {
-		conf.Remotes[server] = config.Remote{Addr: addr, Public: true}
+		conf.Remotes[server] = config.Remote{Addr: addr, Public: true, CredHelper: c.flagCredHelper}
 		return conf.SaveConfig(c.global.confPath)
 	}
 
