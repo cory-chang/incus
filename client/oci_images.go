@@ -3,6 +3,7 @@ package incus
 import (
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -183,7 +184,7 @@ func (r *ProtocolOCI) GetImageFile(fingerprint string, req ImageFileRequest) (*I
 		req.ProgressHandler(ioprogress.ProgressData{Text: "Retrieving OCI image from registry"})
 	}
 
-		// TODO: pull username/secret out of URL, and attach to authfile
+	// TODO: pull username/secret out of URL, and attach to authfile
 	// TODO: check if auth is actually being used
 	// TODO: pull entire skopeo call into a separate function
 	uri, err := url.Parse(r.httpHost)
@@ -254,7 +255,7 @@ func (r *ProtocolOCI) GetImageFile(fingerprint string, req ImageFileRequest) (*I
 		req.ProgressHandler(ioprogress.ProgressData{Text: "Unpacking the OCI image"})
 	}
 
-	stdout, err = subprocess.RunCommand(
+	stdout, err := subprocess.RunCommand(
 		"umoci",
 		"unpack",
 		"--keep-dirlinks",
