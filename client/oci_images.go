@@ -398,11 +398,9 @@ func (r *ProtocolOCI) GetImageAliasNames() ([]string, error) {
 
 // GetImageAlias returns an existing alias as an ImageAliasesEntry struct.
 func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string, error) {
-	
-	fmt.Print("HERE1")
 	// Get proxy details.
 	proxy, err := r.getProxyHost()
-	if err != nil {
+	if err != nil {		
 		return nil, "", err
 	}
 
@@ -424,6 +422,7 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 		var stdout string
 	
 		if uri.User == nil {
+			fmt.Print("Auth not enabled")
 			stdout, _, err := subprocess.RunCommandSplit(
 				context.Background(), // TODO: not sure
 				env,
@@ -436,6 +435,7 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 				return nil, "", err
 			}
 		} else {
+			fmt.Print("Auth enabled")
 			creds, err := json.Marshal(map[string]any{"auths": map[string]any{fmt.Sprintf("%s://%s", uri.Scheme, uri.Host): map[string]string{"auth": base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s", uri.User.String())))}}})
 			if err != nil {
 				return nil, "", err
@@ -470,6 +470,7 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 				"--authfile", authFile.Name(),
 				fmt.Sprintf("%s/%s", uri.String(), name))
 			if err != nil {
+				fmt.Sprintf("stdout: %s", stdout)
 				logger.Debug("Error getting image alias", logger.Ctx{"name": name, "stdout": stdout, "stderr": err})
 				return nil, "", err
 			}
@@ -499,7 +500,7 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 
 	// Store it in the cache.
 	r.cache[info.Digest] = info
-	fmt.Sprintf("HERE")
+	fmt.Print("HERE3")
 
 	// Prepare the alias entry.
 	alias := api.ImageAliasesEntry{
