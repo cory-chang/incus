@@ -94,12 +94,13 @@ type cmdRemoteAdd struct {
 	global *cmdGlobal
 	remote *cmdRemote
 
-	flagAcceptCert bool
-	flagToken      string
-	flagPublic     bool
-	flagProtocol   string
-	flagAuthType   string
-	flagProject    string
+	flagAcceptCert 	bool
+	flagToken      	string
+	flagPublic     	bool
+	flagProtocol   	string
+	flagAuthType   	string
+	flagProject    	string
+	flagCredHelper	string
 }
 
 // Command returns a cobra.Command for use with (*cobra.Command).AddCommand.
@@ -123,6 +124,7 @@ Basic authentication can be used when combined with the "simplestreams" protocol
 	cmd.Flags().StringVar(&c.flagAuthType, "auth-type", "", i18n.G("Server authentication type (tls or oidc)")+"``")
 	cmd.Flags().BoolVar(&c.flagPublic, "public", false, i18n.G("Public image server"))
 	cmd.Flags().StringVar(&c.flagProject, "project", "", i18n.G("Project to use for the remote")+"``")
+	cmd.Flags().StringVar(&c.flagCredHelper, "credentials-helper", "", i18n.G("Binary helper for retrieving credentials")+"``")
 
 	return cmd
 }
@@ -418,7 +420,7 @@ func (c *cmdRemoteAdd) Run(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	conf.Remotes[server] = config.Remote{Addr: addr, Protocol: c.flagProtocol, AuthType: c.flagAuthType}
+	conf.Remotes[server] = config.Remote{Addr: addr, Protocol: c.flagProtocol, AuthType: c.flagAuthType, CredHelper: c.flagCredHelper}
 
 	// Attempt to connect
 	var d incus.ImageServer

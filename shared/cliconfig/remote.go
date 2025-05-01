@@ -25,14 +25,15 @@ import (
 
 // Remote holds details for communication with a remote daemon.
 type Remote struct {
-	Addr      string `yaml:"addr"`
-	AuthType  string `yaml:"auth_type,omitempty"`
-	KeepAlive int    `yaml:"keepalive,omitempty"`
-	Project   string `yaml:"project,omitempty"`
-	Protocol  string `yaml:"protocol,omitempty"`
-	Public    bool   `yaml:"public"`
-	Global    bool   `yaml:"-"`
-	Static    bool   `yaml:"-"`
+	Addr      	string `yaml:"addr"`
+	AuthType  	string `yaml:"auth_type,omitempty"`
+	KeepAlive 	int    `yaml:"keepalive,omitempty"`
+	Project   	string `yaml:"project,omitempty"`
+	Protocol  	string `yaml:"protocol,omitempty"`
+	CredHelper 	string `yaml:"credentials_helper,omitempty"`
+	Public    	bool   `yaml:"public"`
+	Global    	bool   `yaml:"-"`
+	Static    	bool   `yaml:"-"`
 }
 
 // ParseRemote splits remote and object.
@@ -200,6 +201,10 @@ func (c *Config) GetImageServer(name string) (incus.ImageServer, error) {
 
 	// HTTPs (OCI)
 	if remote.Protocol == "oci" {
+		if remote.CredHelper != "" {
+			// TODO: call cred helper
+			// TODO: Set remote.Addr using the net.URL package with username/secret
+		}
 		d, err := incus.ConnectOCI(remote.Addr, args)
 		if err != nil {
 			return nil, err

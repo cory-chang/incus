@@ -183,6 +183,9 @@ func (r *ProtocolOCI) GetImageFile(fingerprint string, req ImageFileRequest) (*I
 		req.ProgressHandler(ioprogress.ProgressData{Text: "Retrieving OCI image from registry"})
 	}
 
+	// TODO: pull username/secret out of URL, and attach to authfile
+	// TODO: check if auth is actually being used
+	// TODO: pull entire skopeo call into a separate function
 	stdout, _, err := subprocess.RunCommandSplit(
 		ctx,
 		env,
@@ -361,6 +364,7 @@ func (r *ProtocolOCI) GetImageAlias(name string) (*api.ImageAliasesEntry, string
 	}
 
 	// Get the image information from skopeo.
+	// TODO: pull username/secret out of URL, and attach to authfile
 	stdout, _, err := subprocess.RunCommandSplit(
 		context.TODO(),
 		env,
