@@ -192,26 +192,17 @@ func (r *ProtocolOCI) GetImageFile(fingerprint string, req ImageFileRequest) (*I
 		return nil, err
 	}
 
+	args := []string{"--insecure-policy", "copy", "--remove-signatures"}
+
 	if uri.User == nil {
-		stdout, _, err := subprocess.RunCommandSplit(
-			ctx,
-			env,
-			nil,
-			"skopeo",
-			"--insecure-policy",
-			"copy",
-			"--remove-signatures",
-			fmt.Sprintf("%s/%s", strings.Replace(r.httpHost, "https://", "docker://", 1), info.Alias),
-			fmt.Sprintf("oci:%s:latest", filepath.Join(ociPath, "oci")))
-		if err != nil {
-			logger.Debug("Error copying remote image to local", logger.Ctx{"image": info.Alias, "stdout": stdout, "stderr": err})
-			return nil, err
-		}
+		args = append(args, fmt.Sprintf("%s/%s", strings.Replace(r.httpHost, "https://", "docker://", 1), info.Alias))
+		args = append(args, fmt.Sprintf("oci:%s:latest", filepath.Join(ociPath, "oci")))
 	} else {
 		creds, err := json.Marshal(map[string]any{"auths": map[string]any{fmt.Sprintf("%s://%s", uri.Scheme, uri.Host): map[string]string{"auth": base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s", uri.User.String())))}}})
 		if err != nil {
 			return nil, err
 		}
+		//fmt.Printf("creds file: %s", creds)
 
 		uri.Scheme = "docker"
 
@@ -233,21 +224,22 @@ func (r *ProtocolOCI) GetImageFile(fingerprint string, req ImageFileRequest) (*I
 			return nil, err
 		}
 
-		stdout, _, err := subprocess.RunCommandSplit(
-			ctx,
-			env,
-			nil,
-			"skopeo",
-			"--insecure-policy",
-			"copy",
-			"--remove-signatures",
-			"--authfile", authFile.Name(),
-			fmt.Sprintf("%s/%s", uri.String(), info.Alias))
-		fmt.Sprintf("oci:%s:latest", filepath.Join(ociPath, "oci"))
-		if err != nil {
-			logger.Debug("Error copying remote image to local", logger.Ctx{"image": info.Alias, "stdout": stdout, "stderr": err})
-			return nil, err
-		}
+		uri.User = nil
+
+		args = append(args, fmt.Sprintf("--authfile=%s", authFile.Name()))
+		args = append(args, fmt.Sprintf("%s/%s", uri.String(), info.Alias))
+		args = append(args, fmt.Sprintf("oci:%s:latest", filepath.Join(ociPath, "oci")))
+	}
+
+	stdout, _, err := subprocess.RunCommandSplit(
+		context.Background(),
+		env,
+		nil,
+		"skopeo",
+		args...)
+	if err != nil {
+		logger.Debug("Error copying remote image to local", logger.Ctx{"image": info.Alias, "stdout": stdout, "stderr": err})
+		return nil, err
 	}
 
 	// Convert to something usable.
@@ -255,7 +247,7 @@ func (r *ProtocolOCI) GetImageFile(fingerprint string, req ImageFileRequest) (*I
 		req.ProgressHandler(ioprogress.ProgressData{Text: "Unpacking the OCI image"})
 	}
 
-	stdout, err := subprocess.RunCommand(
+	stdout, err = subprocess.RunCommand(
 		"umoci",
 		"unpack",
 		"--keep-dirlinks",
